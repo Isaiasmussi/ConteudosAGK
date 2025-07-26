@@ -1,145 +1,231 @@
 import streamlit as st
 import datetime
-from calendar import month_name, monthcalendar
+from calendar import monthcalendar
 
 # --- Configurações da Página ---
 st.set_page_config(
     page_title="Agendador de Conteúdo - Agrolink",
-    page_icon="📅",
-    layout="wide" # Usar layout 'wide' é melhor para calendários
+    page_icon="https://www.agrolink.com.br/images/icons/favicon-32x32-24-v3.png",
+    layout="wide"
 )
 
-# --- Título e Descrição ---
-st.title("📅 Agendador de Conteúdo da Agrolink")
-st.markdown("Use este painel para planejar e visualizar o calendário de publicações.")
+# --- CSS Customizado para replicar o estilo do Google Agenda ---
+st.markdown("""
+<style>
+    /* Esconde o menu hamburger e o footer do Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    /* Estilo para o container de cada dia no calendário */
+    .calendar-day {
+        border: 1px solid #444; /* Borda para criar a grade */
+        border-radius: 8px;
+        padding: 10px;
+        height: 150px; /* Altura fixa para cada célula */
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        position: relative;
+        overflow-y: auto; /* Adiciona scroll se o conteúdo passar da altura */
+    }
+
+    /* Estilo para os dias que não pertencem ao mês atual */
+    .other-month {
+        background-color: #2a2a2a;
+    }
+    .other-month .day-number {
+        color: #666; /* Cor cinza para o número do dia */
+    }
+
+    /* Estilo para o número do dia */
+    .day-number {
+        font-weight: bold;
+        font-size: 1.1em;
+        margin-bottom: 8px;
+        padding: 4px 8px;
+        border-radius: 50%;
+        line-height: 1;
+    }
+
+    /* Estilo para destacar o dia atual */
+    .today .day-number {
+        background-color: #1a73e8; /* Azul do Google */
+        color: white;
+    }
+
+    /* Estilo para os cards de evento */
+    .event-card {
+        padding: 5px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        width: 100%;
+        font-size: 0.9em;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # --- Inicialização do Estado da Sessão ---
-# Usamos o st.session_state para guardar os dados enquanto o app está rodando.
-# Isso evita que os dados se percam a cada interação do usuário.
-
-# Inicializa a lista de eventos se ela não existir
 if 'events' not in st.session_state:
     st.session_state.events = []
 
-# Inicializa os tipos de conteúdo com alguns exemplos
 if 'content_types' not in st.session_state:
     st.session_state.content_types = ["Notícia", "Post Instagram", "Publi", "Reels", "Artigo Blog"]
 
-# --- Funções Auxiliares ---
+# Guarda o mês e ano que estão sendo visualizados
+if 'current_view_date' not in st.session_state:
+    # Começa em Agosto do ano atual
+    st.session_state.current_view_date = datetime.date(datetime.date.today().year, 8, 1)
 
+# --- Funções Auxiliares ---
 def get_color_for_type(content_type):
-    """Gera uma cor única (mas consistente) para cada tipo de conteúdo para fácil visualização."""
-    # Gera um hash do tipo de conteúdo para ter uma cor consistente
+    """Gera uma cor consistente para cada tipo de conteúdo."""
     hash_val = hash(content_type)
     r = (hash_val & 0xFF0000) >> 16
     g = (hash_val & 0x00FF00) >> 8
     b = hash_val & 0x0000FF
     return f"#{r:02x}{g:02x}{b:02x}"
 
+def change_month(delta):
+    """Navega para o mês anterior ou seguinte."""
+    current_date = st.session_state.current_view_date
+    new_month = current_date.month + delta
+    new_year = current_date.year
+    if new_month > 12:
+        new_month = 1
+        new_year += 1
+    elif new_month < 1:
+        new_month = 12
+        new_year -= 1
+    st.session_state.current_view_date = datetime.date(new_year, new_month, 1)
 
-# --- Barra Lateral (Sidebar) para Ações ---
-st.sidebar.header("🗓️ Ações")
+def go_to_today():
+    """Volta para o mês atual."""
+    st.session_state.current_view_date = datetime.date.today()
 
-# --- Formulário para Adicionar Novo Conteúdo ---
-st.sidebar.subheader("Agendar Novo Conteúdo")
+
+# --- Barra Lateral (Sidebar) ---
+logo_url = "https://www.agrolink.com.br/images/logos/agrolink-logo-v2.png"
+st.sidebar.image(logo_url, use_column_width=True)
+st.sidebar.title("Agendador")
+
+# Formulário para Adicionar Novo Conteúdo
 with st.sidebar.form("new_event_form", clear_on_submit=True):
+    st.subheader("Agendar Conteúdo")
     event_title = st.text_input("Título do Conteúdo:")
-    event_date = st.date_input("Data:")
+    event_date = st.date_input("Data:", value=datetime.date.today())
     event_type = st.selectbox(
         "Formato do Conteúdo:",
         options=st.session_state.content_types
     )
-    submitted = st.form_submit_button("✅ Salvar Agendamento")
+    submitted = st.form_submit_button("Salvar Agendamento", use_container_width=True)
 
-    if submitted:
-        if event_title:
-            # Adiciona o novo evento à lista no session_state
-            st.session_state.events.append({
-                "title": event_title,
-                "date": event_date,
-                "type": event_type
-            })
-            st.sidebar.success("Conteúdo agendado com sucesso!")
-        else:
-            st.sidebar.error("Por favor, adicione um título ao conteúdo.")
+    if submitted and event_title:
+        st.session_state.events.append({
+            "title": event_title,
+            "date": event_date,
+            "type": event_type
+        })
+        st.sidebar.success("Conteúdo agendado!")
+    elif submitted:
+        st.sidebar.error("Por favor, adicione um título.")
 
-# --- Formulário para Gerenciar Tipos de Conteúdo ---
-st.sidebar.subheader("Gerenciar Formatos")
-with st.sidebar.form("new_type_form", clear_on_submit=True):
-    new_type_name = st.text_input("Nome do Novo Formato (ex: Vídeo TikTok):")
-    add_type_submitted = st.form_submit_button("➕ Adicionar Formato")
+# Expander para Gerenciar Tipos de Conteúdo
+with st.sidebar.expander("Gerenciar Formatos de Conteúdo"):
+    with st.form("new_type_form", clear_on_submit=True):
+        new_type_name = st.text_input("Nome do Novo Formato:")
+        add_type_submitted = st.form_submit_button("Adicionar Formato", use_container_width=True)
 
-    if add_type_submitted:
-        if new_type_name and new_type_name not in st.session_state.content_types:
-            st.session_state.content_types.append(new_type_name)
-            st.sidebar.success(f"Formato '{new_type_name}' adicionado!")
-            # Força um rerun para o selectbox de agendamento ser atualizado
-            st.experimental_rerun()
-        elif not new_type_name:
-            st.sidebar.warning("Digite um nome para o novo formato.")
-        else:
-            st.sidebar.warning(f"O formato '{new_type_name}' já existe.")
+        if add_type_submitted and new_type_name:
+            if new_type_name not in st.session_state.content_types:
+                st.session_state.content_types.append(new_type_name)
+                st.success(f"Formato '{new_type_name}' adicionado!")
+                st.experimental_rerun()
+            else:
+                st.warning(f"O formato '{new_type_name}' já existe.")
 
-# Exibe os tipos de conteúdo atuais
-st.sidebar.write("Formatos existentes:")
-for content_type in st.session_state.content_types:
-    color = get_color_for_type(content_type)
-    st.sidebar.markdown(f"<span style='color:{color}; font-weight: bold;'>●</span> {content_type}", unsafe_allow_html=True)
+    st.write("Formatos existentes:")
+    for content_type in st.session_state.content_types:
+        color = get_color_for_type(content_type)
+        st.markdown(f"<span style='color:{color}; font-weight: bold;'>●</span> {content_type}", unsafe_allow_html=True)
 
 
 # --- Calendário Principal ---
-current_year = datetime.datetime.now().year
 
-# Gera abas para os meses a partir de Agosto até Dezembro
-# `month_name` é uma lista do módulo `calendar`, onde o índice 1 é Janeiro, 2 é Fevereiro, etc.
-# Usamos `pt_BR` para os nomes dos meses em português.
+# Cabeçalho de navegação do calendário
 month_names_pt = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-# Começamos em Agosto (mês 8)
-tabs = st.tabs([month_names_pt[i] for i in range(8, 13)])
+view_date = st.session_state.current_view_date
 
-# Itera sobre os meses de Agosto (8) a Dezembro (12)
-for i, month_index in enumerate(range(8, 13)):
-    with tabs[i]:
-        st.subheader(f"{month_names_pt[month_index]} de {current_year}")
+header_cols = st.columns([1, 2, 1, 4, 1, 1])
+with header_cols[0]:
+    st.title("Agenda")
+with header_cols[1]:
+    if st.button("Hoje", on_click=go_to_today):
+        pass
+with header_cols[2]:
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: flex-start; align-items: center; height: 100%;">
+            <button onclick="document.getElementById('prev-month').click()" style="background:none; border:none; cursor:pointer;">&lt;</button>
+            <button onclick="document.getElementById('next-month').click()" style="background:none; border:none; cursor:pointer;">&gt;</button>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    # Botões invisíveis para o Streamlit manipular o estado
+    if st.button(" ", key="prev-month", on_click=change_month, args=(-1,)):
+        pass
+    if st.button(" ", key="next-month", on_click=change_month, args=(1,)):
+        pass
 
-        # Cabeçalho com os dias da semana
-        week_headers = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
-        cols = st.columns(7)
-        for col, header in zip(cols, week_headers):
-            col.markdown(f"**{header}**")
-
-        # Pega o calendário do mês como uma matriz (semanas x dias)
-        cal = monthcalendar(current_year, month_index)
-
-        for week in cal:
-            cols = st.columns(7)
-            for day_index, day in enumerate(week):
-                with cols[day_index]:
-                    # Dias que não pertencem ao mês são representados por 0
-                    if day == 0:
-                        st.write("") # Deixa o espaço em branco
-                    else:
-                        current_date = datetime.date(current_year, month_index, day)
-                        # Escreve o número do dia
-                        st.markdown(f"**{day}**")
-
-                        # Filtra os eventos para o dia atual
-                        events_for_day = [
-                            event for event in st.session_state.events
-                            if event["date"] == current_date
-                        ]
-
-                        # Exibe os eventos agendados para este dia
-                        for event in events_for_day:
-                            event_color = get_color_for_type(event['type'])
-                            st.markdown(
-                                f"""
-                                <div style="background-color: {event_color}22; border-left: 5px solid {event_color}; padding: 5px; border-radius: 5px; margin-bottom: 5px;">
-                                    <small style="color: {event_color}; font-weight: bold;">{event['type']}</small><br>
-                                    {event['title']}
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
+with header_cols[3]:
+    st.subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
 
 
+# Cabeçalho com os dias da semana (abreviado)
+week_headers = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
+cols = st.columns(7)
+for col, header in zip(cols, week_headers):
+    col.markdown(f"<div style='text-align: center; font-weight: bold;'>{header}</div>", unsafe_allow_html=True)
+
+st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
+
+
+# Gera o calendário do mês
+cal = monthcalendar(view_date.year, view_date.month)
+today = datetime.date.today()
+
+for week in cal:
+    cols = st.columns(7)
+    for day_index, day in enumerate(week):
+        with cols[day_index]:
+            # Define as classes CSS para o dia
+            day_class = "calendar-day"
+            day_number_html = ""
+
+            if day == 0:
+                day_class += " other-month" # Dia de outro mês (célula vazia)
+            else:
+                current_date = datetime.date(view_date.year, view_date.month, day)
+                if current_date == today:
+                    day_class += " today" # Dia atual
+
+                day_number_html = f"<div class='day-number'>{day}</div>"
+
+                # Filtra os eventos para o dia atual
+                events_for_day = sorted(
+                    [event for event in st.session_state.events if event["date"] == current_date],
+                    key=lambda x: x['title']
+                )
+
+                # Exibe os eventos agendados
+                for event in events_for_day:
+                    event_color = get_color_for_type(event['type'])
+                    day_number_html += f"""
+                    <div class="event-card" style="background-color: {event_color}40; border-left: 5px solid {event_color};">
+                        <small style="color: {event_color}; font-weight: bold;">{event['type']}</small><br>
+                        {event['title']}
+                    </div>
+                    """
+
+            st.markdown(f"<div class='{day_class}'>{day_number_html}</div>", unsafe_allow_html=True)
