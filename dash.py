@@ -16,11 +16,8 @@ st.markdown("""
     /* Esconde o menu hamburger e o footer do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-
-    /* Container principal do calendário */
-    .calendar-container {
-        border-top: 1px solid #444;
-        border-left: 1px solid #444;
+    .block-container {
+        padding-top: 2rem;
     }
 
     /* Estilo para o container de cada dia no calendário */
@@ -29,12 +26,21 @@ st.markdown("""
         border-bottom: 1px solid #444;
         border-radius: 0;
         padding: 8px;
-        height: 150px; /* Altura fixa para cada célula */
+        height: 140px; /* Altura fixa para cada célula */
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         position: relative;
         overflow-y: auto; /* Adiciona scroll se o conteúdo passar da altura */
+    }
+
+    /* Primeiro dia da semana (Domingo) */
+    .calendar-day-first {
+        border-left: 1px solid #444;
+    }
+    /* Primeira semana do mes */
+     .calendar-week-first .calendar-day {
+        border-top: 1px solid #444;
     }
 
     /* Estilo para os dias que não pertencem ao mês atual */
@@ -83,6 +89,7 @@ if 'content_types' not in st.session_state:
     st.session_state.content_types = ["Notícia", "Post Instagram", "Publi", "Reels", "Artigo Blog"]
 
 if 'current_view_date' not in st.session_state:
+    # Começa em Agosto do ano atual
     st.session_state.current_view_date = datetime.date(datetime.date.today().year, 8, 1)
 
 # --- Funções Auxiliares ---
@@ -102,7 +109,7 @@ def go_to_today():
 
 # --- Barra Lateral (Sidebar) ---
 logo_url = "https://www.agrolink.com.br/images/logos/agrolink-logo-v2.png"
-st.sidebar.image(logo_url, use_column_width='always') # Corrigido para use_container_width
+st.sidebar.image(logo_url, use_column_width=True)
 st.sidebar.title("Agendador")
 
 with st.sidebar.form("new_event_form", clear_on_submit=True):
@@ -140,75 +147,62 @@ month_names_pt = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho"
 view_date = st.session_state.current_view_date
 
 # Cabeçalho de navegação
-header_cols = st.columns([2, 1, 5, 3])
+header_cols = st.columns([1.5, 0.8, 0.4, 0.4, 4])
 with header_cols[0]:
     st.title("Agenda")
 with header_cols[1]:
     st.button("Hoje", on_click=go_to_today, use_container_width=True)
-
 with header_cols[2]:
-    nav_cols = st.columns([1, 1, 10])
-    nav_cols[0].button("<", on_click=change_month, args=(-1,), use_container_width=True)
-    nav_cols[1].button(">", on_click=change_month, args=(1,), use_container_width=True)
-    nav_cols[2].subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
+    st.button("<", on_click=change_month, args=(-1,), use_container_width=True)
+with header_cols[3]:
+    st.button(">", on_click=change_month, args=(1,), use_container_width=True)
+with header_cols[4]:
+    st.subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
 
 # Dias da semana
 week_headers = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
 cols = st.columns(7)
 for col, header in zip(cols, week_headers):
-    col.markdown(f"<div style='text-align: center; font-weight: bold; color: #aaa; margin-bottom: 10px;'>{header}</div>", unsafe_allow_html=True)
+    col.markdown(f"<div style='text-align: center; font-weight: bold; color: #aaa; margin: 10px 0;'>{header}</div>", unsafe_allow_html=True)
 
-# Lógica para preencher os dias de outros meses
-cal = monthcalendar(view_date.year, view_date.month)
+# --- Lógica de Geração da Grade do Calendário ---
 today = datetime.date.today()
-prev_month_date = view_date - relativedelta(months=1)
-next_month_date = view_date + relativedelta(months=1)
-days_in_prev_month = monthcalendar(prev_month_date.year, prev_month_date.month)[-1]
-days_in_prev_month = [d for d in days_in_prev_month if d != 0]
+first_day_of_month = view_date.replace(day=1)
+# O calendário do Google começa no Domingo (weekday() == 6).
+# Se o primeiro dia do mês não for domingo, voltamos para o último domingo.
+start_date = first_day_of_month - datetime.timedelta(days=(first_day_of_month.weekday() + 1) % 7)
 
-st.markdown("<div class='calendar-container'>", unsafe_allow_html=True)
-
-for week in cal:
+# Desenha 6 semanas
+for week_num in range(6):
+    is_first_week_class = "calendar-week-first" if week_num == 0 else ""
+    st.markdown(f"<div class='{is_first_week_class}'>", unsafe_allow_html=True)
     cols = st.columns(7)
-    for day_index, day in enumerate(week):
-        with cols[day_index]:
+    for day_num in range(7):
+        current_date = start_date + datetime.timedelta(days=(week_num * 7 + day_num))
+        
+        with cols[day_num]:
             day_class = "calendar-day"
-            day_number_html = ""
+            if day_num == 0:
+                day_class += " calendar-day-first" # Adiciona borda esquerda no domingo
             
-            if day == 0:
-                # Lógica para dias do mês anterior
-                if cal.index(week) == 0:
-                    prev_month_day = days_in_prev_month[day_index - len(days_in_prev_month)]
-                    day_class += " other-month"
-                    day_number_html = f"<div class='day-number'>{prev_month_day}</div>"
-                # Lógica para dias do próximo mês
-                else:
-                    # Encontra o primeiro dia da próxima semana para começar a contar
-                    if 'next_month_day_counter' not in st.session_state:
-                         st.session_state.next_month_day_counter = 1
-                    day_class += " other-month"
-                    day_number_html = f"<div class='day-number'>{st.session_state.next_month_day_counter}</div>"
-                    st.session_state.next_month_day_counter += 1
-            else:
-                current_date = datetime.date(view_date.year, view_date.month, day)
-                if current_date == today:
-                    day_class += " today"
+            if current_date.month != view_date.month:
+                day_class += " other-month"
+            
+            if current_date == today:
+                day_class += " today"
 
-                day_number_html = f"<div class='day-number'>{day}</div>"
-                events_for_day = sorted([e for e in st.session_state.events if e["date"] == current_date], key=lambda x: x['title'])
-
-                for event in events_for_day:
-                    event_color = get_color_for_type(event['type'])
-                    day_number_html += f"""
-                    <div class="event-card" style="background-color: {event_color}40; border-left: 3px solid {event_color};">
-                        {event['title']}
-                    </div>
-                    """
+            day_number_html = f"<div class='day-number'>{current_date.day}</div>"
+            
+            # Busca e exibe eventos para o dia
+            events_for_day = sorted([e for e in st.session_state.events if e["date"] == current_date], key=lambda x: x['title'])
+            for event in events_for_day:
+                event_color = get_color_for_type(event['type'])
+                day_number_html += f"""
+                <div class="event-card" style="background-color: {event_color}40; border-left: 3px solid {event_color};" title="{event['type']}: {event['title']}">
+                    {event['title']}
+                </div>
+                """
             
             st.markdown(f"<div class='{day_class}'>{day_number_html}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Reseta o contador para o próximo re-render
-if 'next_month_day_counter' in st.session_state:
-    del st.session_state.next_month_day_counter
-
-st.markdown("</div>", unsafe_allow_html=True)
