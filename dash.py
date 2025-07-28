@@ -68,6 +68,19 @@ st.markdown("""
         padding-top: 2rem;
         padding-bottom: 0rem;
     }
+    .calendar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    .calendar-header .nav-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .calendar-header h2 {
+        margin: 0 1rem;
+    }
     .calendar-day {
         border-right: 1px solid #444;
         border-bottom: 1px solid #444;
@@ -181,19 +194,16 @@ with st.sidebar.expander("Gerenciar Formatos de Conteúdo"):
 month_names_pt = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 view_date = st.session_state.current_view_date
 
-# Cabeçalho de navegação com colunas para alinhar
-header_cols = st.columns([2, 1, 0.5, 0.5, 5])
-with header_cols[0]:
+# Cabeçalho de navegação
+c1, c2, c3 = st.columns([2, 5, 2])
+with c1:
     st.title("Agenda")
-with header_cols[1]:
-    st.button("Hoje", on_click=go_to_today, use_container_width=True)
-with header_cols[2]:
-    st.button("<", on_click=change_month, args=(-1,), use_container_width=True, key="prev_month")
-with header_cols[3]:
-    st.button(">", on_click=change_month, args=(1,), use_container_width=True, key="next_month")
-with header_cols[4]:
-    st.subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
-
+with c2:
+    cols = st.columns([1, 0.5, 0.5, 3])
+    cols[0].button("Hoje", on_click=go_to_today, use_container_width=True)
+    cols[1].button("<", on_click=change_month, args=(-1,), use_container_width=True, key="prev_month")
+    cols[2].button(">", on_click=change_month, args=(1,), use_container_width=True, key="next_month")
+    cols[3].subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
 
 # Dias da semana
 week_headers = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
@@ -204,10 +214,8 @@ for col, header in zip(cols, week_headers):
 # Lógica de Geração da Grade do Calendário
 today = datetime.date.today()
 first_day_of_month = view_date.replace(day=1)
-# O calendário começa no Domingo (weekday() == 6).
 start_date = first_day_of_month - datetime.timedelta(days=(first_day_of_month.weekday() + 1) % 7)
 
-# Desenha 6 semanas para um layout consistente
 for week_num in range(6):
     is_first_week_class = "calendar-week-first" if week_num == 0 else ""
     st.markdown(f"<div class='{is_first_week_class}'>", unsafe_allow_html=True)
@@ -232,4 +240,3 @@ for week_num in range(6):
                 """
             st.markdown(f"<div class='{day_class}'>{day_number_html}</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
