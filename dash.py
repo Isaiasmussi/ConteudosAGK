@@ -66,6 +66,7 @@ st.markdown("""
     footer {visibility: hidden;}
     .block-container {
         padding-top: 2rem;
+        padding-bottom: 0rem;
     }
     .calendar-day {
         border-right: 1px solid #444;
@@ -117,7 +118,6 @@ st.markdown("""
 
 
 # --- Inicialização do Estado da Sessão ---
-# Carrega os eventos do DB para o estado da sessão apenas uma vez
 if 'events' not in st.session_state:
     st.session_state.events = load_events()
 
@@ -153,16 +153,14 @@ with st.sidebar.form("new_event_form", clear_on_submit=True):
     submitted = st.form_submit_button("Salvar Agendamento", use_container_width=True)
 
     if submitted and event_title:
-        # Salva no banco de dados e atualiza o estado da sessão
         save_event(event_title, event_date, event_type)
-        st.session_state.events.append({"title": event_title, "date": event_date, "type": event_type})
+        st.session_state.events = load_events() # Recarrega do banco
         st.sidebar.success("Conteúdo agendado e salvo!")
         st.experimental_rerun()
     elif submitted:
         st.sidebar.error("Por favor, adicione um título.")
 
 with st.sidebar.expander("Gerenciar Formatos de Conteúdo"):
-    # (Por enquanto, esta parte ainda não é persistente)
     with st.form("new_type_form", clear_on_submit=True):
         new_type_name = st.text_input("Nome do Novo Formato:")
         add_type_submitted = st.form_submit_button("Adicionar Formato", use_container_width=True)
@@ -183,34 +181,47 @@ with st.sidebar.expander("Gerenciar Formatos de Conteúdo"):
 month_names_pt = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 view_date = st.session_state.current_view_date
 
-header_cols = st.columns([1.5, 0.8, 0.4, 0.4, 4])
-with header_cols[0]: st.title("Agenda")
-with header_cols[1]: st.button("Hoje", on_click=go_to_today, use_container_width=True)
-with header_cols[2]: st.button("<", on_click=change_month, args=(-1,), use_container_width=True)
-with header_cols[3]: st.button(">", on_click=change_month, args=(1,), use_container_width=True)
-with header_cols[4]: st.subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
+# Cabeçalho de navegação com colunas para alinhar
+header_cols = st.columns([2, 1, 0.5, 0.5, 5])
+with header_cols[0]:
+    st.title("Agenda")
+with header_cols[1]:
+    st.button("Hoje", on_click=go_to_today, use_container_width=True)
+with header_cols[2]:
+    st.button("<", on_click=change_month, args=(-1,), use_container_width=True, key="prev_month")
+with header_cols[3]:
+    st.button(">", on_click=change_month, args=(1,), use_container_width=True, key="next_month")
+with header_cols[4]:
+    st.subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
 
+
+# Dias da semana
 week_headers = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
 cols = st.columns(7)
 for col, header in zip(cols, week_headers):
     col.markdown(f"<div style='text-align: center; font-weight: bold; color: #aaa; margin: 10px 0;'>{header}</div>", unsafe_allow_html=True)
 
+# Lógica de Geração da Grade do Calendário
 today = datetime.date.today()
 first_day_of_month = view_date.replace(day=1)
+# O calendário começa no Domingo (weekday() == 6).
 start_date = first_day_of_month - datetime.timedelta(days=(first_day_of_month.weekday() + 1) % 7)
 
+# Desenha 6 semanas para um layout consistente
 for week_num in range(6):
     is_first_week_class = "calendar-week-first" if week_num == 0 else ""
     st.markdown(f"<div class='{is_first_week_class}'>", unsafe_allow_html=True)
     cols = st.columns(7)
     for day_num in range(7):
         current_date = start_date + datetime.timedelta(days=(week_num * 7 + day_num))
+        
         with cols[day_num]:
             day_class = "calendar-day" + (" calendar-day-first" if day_num == 0 else "")
             if current_date.month != view_date.month: day_class += " other-month"
             if current_date == today: day_class += " today"
             
             day_number_html = f"<div class='day-number'>{current_date.day}</div>"
+            
             events_for_day = sorted([e for e in st.session_state.events if e["date"] == current_date], key=lambda x: x['title'])
             for event in events_for_day:
                 event_color = get_color_for_type(event['type'])
