@@ -71,7 +71,7 @@ st.markdown("""
         padding-bottom: 0rem;
     }
     /* Alinhamento vertical para os elementos do cabeçalho */
-    div[data-testid="stHorizontalBlock"] > div {
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -144,7 +144,7 @@ def go_to_today():
 
 # --- Barra Lateral (Sidebar) ---
 logo_url = "https://www.agrolink.com.br/images/logos/agrolink-logo-v2.png"
-st.sidebar.image(logo_url, use_column_width='always') # CORRIGIDO: use_column_width='always'
+st.sidebar.image(logo_url, use_column_width=True)
 st.sidebar.title("Agendador")
 
 with st.sidebar.form("new_event_form", clear_on_submit=True):
@@ -183,28 +183,18 @@ with st.sidebar.expander("Gerenciar Formatos de Conteúdo"):
 month_names_pt = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 view_date = st.session_state.current_view_date
 
-# Cabeçalho de navegação (versão robusta)
-st.markdown(
-    f"""
-    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <h1 style="margin: 0;">Agenda</h1>
-        <div style="display: flex; align-items: center;">
-            <!-- Botões funcionais do Streamlit (serão colocados abaixo e podem ser escondidos se necessário) -->
-        </div>
-        <h2 style="margin: 0;">{month_names_pt[view_date.month]} de {view_date.year}</h2>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# Botões de navegação (separados para estabilidade)
-nav_cols = st.columns([6, 1, 0.5, 0.5, 5])
-with nav_cols[1]:
+# Cabeçalho de navegação (versão robusta e alinhada)
+header_cols = st.columns([2, 1, 0.5, 0.5, 5])
+with header_cols[0]:
+    st.title("Agenda")
+with header_cols[1]:
     st.button("Hoje", on_click=go_to_today, use_container_width=True)
-with nav_cols[2]:
+with header_cols[2]:
     st.button("<", on_click=change_month, args=(-1,), use_container_width=True, key="prev_month")
-with nav_cols[3]:
+with header_cols[3]:
     st.button(">", on_click=change_month, args=(1,), use_container_width=True, key="next_month")
+with header_cols[4]:
+    st.subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
 
 
 # Dias da semana
