@@ -33,13 +33,14 @@ def load_events():
     """Carrega todos os eventos do banco de dados."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT title, event_date, type FROM events")
+    cursor.execute("SELECT id, title, event_date, type FROM events")
     events = []
     for row in cursor.fetchall():
         events.append({
-            "title": row[0],
-            "date": datetime.datetime.strptime(row[1], '%Y-%m-%d').date(),
-            "type": row[2]
+            "id": row[0],
+            "title": row[1],
+            "date": datetime.datetime.strptime(row[2], '%Y-%m-%d').date(),
+            "type": row[3]
         })
     conn.close()
     return events
@@ -62,24 +63,18 @@ init_db()
 # --- CSS Customizado ---
 st.markdown("""
 <style>
+    /* Esconde o menu hamburger e o footer do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .block-container {
         padding-top: 2rem;
         padding-bottom: 0rem;
     }
-    .calendar-header {
+    /* Alinhamento vertical para os elementos do cabeçalho */
+    div[data-testid="stHorizontalBlock"] > div {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-    }
-    .calendar-header .nav-buttons {
-        display: flex;
-        align-items: center;
-    }
-    .calendar-header h2 {
-        margin: 0 1rem;
+        flex-direction: column;
+        justify-content: center;
     }
     .calendar-day {
         border-right: 1px solid #444;
@@ -93,15 +88,9 @@ st.markdown("""
         position: relative;
         overflow-y: auto;
     }
-    .calendar-day-first {
-        border-left: 1px solid #444;
-    }
-    .calendar-week-first .calendar-day {
-        border-top: 1px solid #444;
-    }
-    .other-month .day-number {
-        color: #666;
-    }
+    .calendar-day-first { border-left: 1px solid #444; }
+    .calendar-week-first .calendar-day { border-top: 1px solid #444; }
+    .other-month .day-number { color: #666; }
     .day-number {
         font-weight: bold;
         font-size: 0.9em;
@@ -155,7 +144,7 @@ def go_to_today():
 
 # --- Barra Lateral (Sidebar) ---
 logo_url = "https://www.agrolink.com.br/images/logos/agrolink-logo-v2.png"
-st.sidebar.image(logo_url, use_column_width=True)
+st.sidebar.image(logo_url, use_column_width='always') # CORRIGIDO: use_column_width='always'
 st.sidebar.title("Agendador")
 
 with st.sidebar.form("new_event_form", clear_on_submit=True):
@@ -167,7 +156,7 @@ with st.sidebar.form("new_event_form", clear_on_submit=True):
 
     if submitted and event_title:
         save_event(event_title, event_date, event_type)
-        st.session_state.events = load_events() # Recarrega do banco
+        st.session_state.events = load_events()
         st.sidebar.success("Conteúdo agendado e salvo!")
         st.experimental_rerun()
     elif submitted:
@@ -194,16 +183,29 @@ with st.sidebar.expander("Gerenciar Formatos de Conteúdo"):
 month_names_pt = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 view_date = st.session_state.current_view_date
 
-# Cabeçalho de navegação
-c1, c2, c3 = st.columns([2, 5, 2])
-with c1:
-    st.title("Agenda")
-with c2:
-    cols = st.columns([1, 0.5, 0.5, 3])
-    cols[0].button("Hoje", on_click=go_to_today, use_container_width=True)
-    cols[1].button("<", on_click=change_month, args=(-1,), use_container_width=True, key="prev_month")
-    cols[2].button(">", on_click=change_month, args=(1,), use_container_width=True, key="next_month")
-    cols[3].subheader(f"{month_names_pt[view_date.month]} de {view_date.year}")
+# Cabeçalho de navegação (versão robusta)
+st.markdown(
+    f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <h1 style="margin: 0;">Agenda</h1>
+        <div style="display: flex; align-items: center;">
+            <!-- Botões funcionais do Streamlit (serão colocados abaixo e podem ser escondidos se necessário) -->
+        </div>
+        <h2 style="margin: 0;">{month_names_pt[view_date.month]} de {view_date.year}</h2>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Botões de navegação (separados para estabilidade)
+nav_cols = st.columns([6, 1, 0.5, 0.5, 5])
+with nav_cols[1]:
+    st.button("Hoje", on_click=go_to_today, use_container_width=True)
+with nav_cols[2]:
+    st.button("<", on_click=change_month, args=(-1,), use_container_width=True, key="prev_month")
+with nav_cols[3]:
+    st.button(">", on_click=change_month, args=(1,), use_container_width=True, key="next_month")
+
 
 # Dias da semana
 week_headers = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
