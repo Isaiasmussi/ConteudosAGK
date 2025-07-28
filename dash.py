@@ -70,8 +70,8 @@ st.markdown("""
         padding-top: 2rem;
         padding-bottom: 0rem;
     }
-    /* Alinhamento vertical para os elementos do cabeçalho */
-    div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
+    /* Força o alinhamento vertical de todos os itens dentro de um bloco horizontal */
+    div[data-testid="stHorizontalBlock"] > div {
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -144,7 +144,7 @@ def go_to_today():
 
 # --- Barra Lateral (Sidebar) ---
 logo_url = "https://www.agrolink.com.br/images/logos/agrolink-logo-v2.png"
-st.sidebar.image(logo_url, use_column_width=True)
+st.sidebar.image(logo_url, use_container_width=True) # CORRIGIDO: use_container_width=True
 st.sidebar.title("Agendador")
 
 with st.sidebar.form("new_event_form", clear_on_submit=True):
