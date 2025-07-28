@@ -185,7 +185,7 @@ def handle_data_refresh():
     st.session_state.events = load_data('events')
     st.session_state.content_types = [ct['name'] for ct in load_data('content_types')]
     clear_editing_state()
-    st.experimental_rerun()
+    st.rerun() # CORRIGIDO: de st.experimental_rerun() para st.rerun()
 
 # --- Barra Lateral (Sidebar) ---
 logo_url = "https://www.agrolink.com.br/images/logos/agrolink-logo-v2.png"
